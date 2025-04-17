@@ -12,6 +12,9 @@ def parse_bits(s: str) -> t.Iterator[Bit]:
                 yield 1
             case "0":
                 yield 0
+            case "_":
+                # technically these shouldn't be allowed to repeat
+                continue
             case other:
                 raise ValueError(f"Not 0/1: {other}")
 
@@ -24,7 +27,7 @@ def alignment_padding(length: int, alignment: int) -> int:
 
 
 def check_idx(input_idx: int, length: int):
-    idx = input_idx if input_idx >= 0 else length + input_idx
+    idx = input_idx if input_idx >= 0 else (length + input_idx)
     if not (0 <= idx < length):
         raise IndexError(f"index {input_idx} out of range for length {length})")
     return idx

@@ -41,32 +41,34 @@ class BitString:
 
     @classmethod
     def ones(cls, length: int) -> t.Self:
+        assert length >= 0
         return cls((1 << length) - 1)
 
     @classmethod
     def zeroes(cls, length: int) -> t.Self:
+        assert length >= 0
         return cls(0, length)
 
     @classmethod
-    def from_string(cls, s: str) -> t.Self:
+    def parse(cls, s: str) -> t.Self:
         match s[:2]:
             case "0b":
                 return cls.from_bits(parse_bits(s[2:]))
             case "0x":
                 return cls(
                     value=int(s[2:], base=16),
-                    length=4 * (len(s) - 2),
+                    length=4 * (len(s.replace("_", "")) - 2),
                 )
             case _:
                 # if here, assume string made of "1"s and "0"s
                 return cls.from_bits(parse_bits(s))
 
     # ---- String representations ---- #
-    def to_string(self) -> str:
+    def __str__(self) -> str:
         return "".join(map(str, self))
 
     def __repr__(self) -> str:
-        return f"<{self.__class__.__name__}: {self.to_string()} ({self.value})>"
+        return f"<{self.__class__.__name__}: {self} ({self.value})>"
 
     def __len__(self):
         return self.length
@@ -141,6 +143,10 @@ class BitString:
         for n in range(self.length // chunk_len):
             yield self[n * chunk_len : (n + 1) * chunk_len]
 
+    def iter_bytes(self) -> t.Iterator[t.Self]:
+        """Worth a shortcut"""
+        return self.iter_chunks(8)
+
     @t.overload
     def __getitem__(self, item: int) -> Bit: ...
 
@@ -157,6 +163,19 @@ class BitString:
             )
         else:
             raise NotImplementedError(type(item))
+
+    def to_hex(self, autopad: bool = False) -> str:
+        """Return hex representation including leading 0s.
+        Must be aligned to 4 bits or pass "autopad=True" to do this
+        """
+        bs = self.pad_left_to_alignment(4) if autopad else self
+
+        if bs.length % 4 != 0:
+            assert not autopad
+            raise ValueError(
+                "Must have length divisible by 4, or pass autopad=True"
+            )
+        return f"{bs.value:0{bs.length // 4}x}"
 
     def set_bit(self, idx: int, val: Bit) -> t.Self:  # test it
         if self[idx] == val:

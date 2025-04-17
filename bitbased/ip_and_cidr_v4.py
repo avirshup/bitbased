@@ -7,7 +7,7 @@ from .bits import BitString
 __all__ = ["CidrV4", "IpV4"]
 
 
-@attrs.frozen(repr=False)
+@attrs.frozen(repr=False, order=True)
 class IpV4:
     bits: BitString
 
@@ -24,20 +24,10 @@ class IpV4:
         return f"<IpV4: {self} / {self.bits}>"
 
     def prev(self) -> t.Self:
-        return self.__class__(
-            bits=attrs.evolve(
-                self.bits,
-                value=self.bits.value - 1,
-            )
-        )
+        return self.__class__(self.bits.wrapping_add(-1))
 
     def next(self) -> t.Self:
-        return self.__class__(
-            bits=attrs.evolve(
-                self.bits,
-                value=self.bits.value + 1,
-            )
-        )
+        return self.__class__(self.bits.wrapping_add(1))
 
     @classmethod
     def parse(cls, s: str) -> t.Self:  # test it
@@ -50,7 +40,7 @@ class IpV4:
         return cls(bs)
 
 
-@attrs.frozen(repr=False)
+@attrs.frozen(repr=False, order=False)
 class CidrV4:
     prefix: BitString
     nbits: int = attrs.field(
@@ -73,33 +63,32 @@ class CidrV4:
     def __repr__(self) -> str:
         return f"<CidrV4: {self}>"
 
-    def __contains__(self, item: IpV4) -> bool:
-        return item.bits[: self.prefix.length] == self.prefix
+    def __contains__(self, item: "IpV4 | CidrV4") -> bool:
+        match item:
+            case IpV4(bits):
+                return bits[: self.prefix.length] == self.prefix
+            case CidrV4(other_prefix):
+                return (
+                    self.prefix.length <= other_prefix.length
+                    and other_prefix[: self.prefix.length] == self.prefix
+                )
+            case _other:  # why does pyright insist on this?
+                raise NotImplementedError(type(_other))
 
     @classmethod
     def parse(cls, s: str) -> t.Self:
         ip_s, nbits_s = s.split("/")
         nbits = int(nbits_s)
         ip = IpV4.parse(ip_s)
-        if ip.bits[-nbits:].value != 0:
+        if nbits > 0 and ip.bits[-nbits:].value != 0:
             raise ValueError(f"Invalid CIDR {s}: not aligned to {nbits}-boundary")
         return cls(prefix=ip.bits[: 32 - nbits])
 
     def prev(self) -> t.Self:
-        return self.__class__(
-            prefix=attrs.evolve(
-                self.prefix,
-                value=self.prefix.value - 1,
-            ),
-        )
+        return self.__class__(self.prefix.wrapping_add(-1))
 
     def next(self) -> t.Self:
-        return self.__class__(
-            prefix=attrs.evolve(
-                self.prefix,
-                value=self.prefix.value + 1,
-            ),
-        )
+        return self.__class__(self.prefix.wrapping_add(1))
 
     def iter_addresses(self) -> t.Iterator[IpV4]:
         addr = self.net_address()

@@ -10,7 +10,7 @@ __all__ = ["BitString"]
 @attrs.frozen(repr=False, order=True)
 class BitString:
     """Immutable array of bits, interpreted as the big endian value
-    (i.e., like a string, where the most significant part is first)
+    (i.e., like a string, where the most significant part is first).
     """
 
     value: int

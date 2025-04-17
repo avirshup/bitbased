@@ -58,20 +58,33 @@ def test_constructors():
 
 
 def test_paddings():
-    mybs = BitString.ones(1)
-    assert str(mybs.pad_left(3)) == "0001"
-    assert str(mybs.pad_left_to_alignment(8)) == "00000001"
+    justone = BitString.ones(1)
+    assert str(justone.pad_left(3)) == "0001"
+    assert str(justone.pad_left_to_alignment(8)) == "00000001"
 
-    assert str(mybs.pad_right(2)) == "100"
-    assert str(mybs.pad_right_to_aligment(6)) == "100000"
+    assert str(justone.pad_right(2)) == "100"
+    assert str(justone.pad_right_to_aligment(6)) == "100000"
+
+
+def test_bitwise_ops():
+    b1 = BitString.parse("000111")
+    b2 = BitString.parse("111000")
+
+    assert b1 << 3 == BitString.parse("000111000")
+    assert b2 >> 3 == BitString.ones(3)
+    assert b1 & b2 == BitString.zeroes(6)
+    assert b1 | b2 == BitString.ones(6)
+    assert b1 ^ b2 == BitString.ones(6)
+    assert ~b1 == b2
 
 
 def test_mutations():
     assert str(BitString.ones(3).concat(BitString.zeroes(5))) == "11100000"
-    assert BitString.ones(5).negate() == BitString.zeroes(5)
-    assert BitString.zeroes(13).negate().negate() == BitString(0, 13)
+    assert ~BitString.ones(5) == BitString.zeroes(5)
+    assert ~~BitString.zeroes(13) == BitString(0, 13)
 
     twelve = BitString.parse("00001100")
+    assert twelve.value == 12  # sanity check
     assert twelve.set_bit(0, 1) == BitString(128 + 12, length=8)
 
     assert twelve.flip_bit(-1).value == 13

@@ -32,5 +32,14 @@ def test_partial_octet_cidrv4():
     assert all_addresses[-1] == cidr.broadcast_address()
     assert len(all_addresses) == cidr.usable_addresses + 2
 
+
+def test_set_memberships():
+    cidr = CidrV4.parse("1.14.32.0/13")
+
     assert IpV4.parse("1.14.35.200") in cidr
     assert IpV4.parse("1.14.30.200") not in cidr
+
+    subset = CidrV4.parse("1.14.35.0/8")
+    assert subset in cidr
+    assert cidr not in subset
+    assert cidr in cidr

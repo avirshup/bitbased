@@ -1,5 +1,3 @@
-import typing as t
-
 import attrs
 
 from . import CidrV4, IpV4
@@ -14,30 +12,27 @@ def covering_set(ip1: IpV4, ip2: IpV4) -> list[CidrV4]:
 
     start, end = (ip1, ip2) if ip1 < ip2 else (ip2, ip1)
 
-    cidrs = []
-    cidr = CidrV4(prefix=start.bits)
-
-    def _next_cidr(c: CidrV4):
-        nonlocal cidr
-        cidrs.append(c)
-        cidr = CidrV4(prefix=cidr.broadcast_address().next().bits)
+    result = []
+    cidr = CidrV4(prefix=start.bits)  # start with a 32-bit prefix
 
     while True:
         if end in cidr:  # i.e., we're done
             assert cidr.broadcast_address() == end
-            cidrs.append(cidr)
+            result.append(cidr)
             break
         elif cidr.prefix[-1] != 0:
-            # can't expand this CIDR anymore
-            _next_cidr(cidr)
+            # can't expand this CIDR anymore, save it and move on
+            result.append(cidr)
+            cidr = CidrV4(prefix=cidr.broadcast_address().next().bits)
         else:
             # can we embiggen this range without going over?
             trial_cidr = attrs.evolve(cidr, prefix=cidr.prefix[:-1])
             if end < trial_cidr.broadcast_address():
-                # reject the embiggening
-                _next_cidr(cidr)
+                # reject the embiggening, save, and move on
+                result.append(cidr)
+                cidr = CidrV4(prefix=cidr.broadcast_address().next().bits)
             else:
                 # accept the embiggening
                 cidr = trial_cidr
 
-    return cidrs
+    return result

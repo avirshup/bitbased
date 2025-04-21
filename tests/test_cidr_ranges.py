@@ -27,7 +27,7 @@ def test_partial_octet_cidrv4():
     cidr = CidrV4.parse("1.14.32.0/13")
     assert cidr.human_readable_range == "1.14.[32-63].[0-255]"
 
-    all_addresses = list(cidr.iter_addresses())
+    all_addresses = list(cidr)
     assert all_addresses[0] == cidr.net_address()
     assert all_addresses[-1] == cidr.broadcast_address()
     assert len(all_addresses) == cidr.usable_addresses + 2

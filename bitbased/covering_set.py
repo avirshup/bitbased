@@ -6,7 +6,7 @@ __all__ = ["covering_set"]
 
 
 def covering_set(ip1: IpV4, ip2: IpV4) -> list[CidrV4]:
-    """minimal contiguous set of CIDRs that containes ip1 and ip2"""
+    """minimal contiguous set of CIDRs that contains ip1 and ip2"""
     if ip1 == ip2:
         return [CidrV4(prefix=ip1.bits)]
 

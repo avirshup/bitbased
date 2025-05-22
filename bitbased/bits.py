@@ -2,7 +2,14 @@ import typing as t
 
 import attrs
 
-from .util import Bit, alignment_padding, check_idx, parse_bits
+from .util import (
+    Bit,
+    alignment_padding,
+    check_idx,
+    parse_bits,
+    ReversibleMap,
+    group_digits,
+)
 
 __all__ = ["BitString"]
 
@@ -65,13 +72,42 @@ class BitString:
 
     # ---- String representations ---- #
     def __str__(self) -> str:
-        return "".join(map(str, self))
+        """Just gives you a string of 1s and 0s"""
+        return self.to_bin()
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__}: {self} ({self.value})>"
 
-    def __len__(self):
-        return self.length
+    # def __format__(self, format_spec: str) -> str:
+    #     """TODO: implement this, ideally using the builtin implementation to
+    #     do as much as possible (both parsing the spec and formatting stuff)
+    #     See:
+    #     - https://docs.python.org/3/reference/datamodel.html#object.__format__
+    #     - https://docs.python.org/3/library/string.html#formatspec
+    #     - https://github.com/doconix/string-format-full
+    #     """
+    #     raise NotImplementedError()
+
+    def to_bin(self) -> str:
+        """Just the string of 1s and 0s
+
+        TODO: add args (e.g., digit separators) that can be used to implement format specifiers
+        """
+        return "".join(map(str, self))
+
+    def to_hex(self, autopad: bool = False) -> str:
+        """Return value as hex digits, including leading 0s.
+        *Must* be aligned to 4 bits or pass "autopad=True".
+        Does not include any `0x` prefix.
+
+        TODO: add args (e.g., digit separators) that can be used to implement format specifiers
+        """
+        bs = self.pad_left_to_alignment(4) if autopad else self
+
+        if bs.length % 4 != 0:
+            assert not autopad
+            raise ValueError("Must have length divisible by 4, or pass autopad=True")
+        return f"{bs.value:0{bs.length // 4}x}"
 
     # ---- Math --- #
     # Warning:
@@ -130,22 +166,51 @@ class BitString:
                 "operation not defined for BitStrings of different lengths"
             )
 
-    # ----- Bit access ----- #
+    # ----- Iterators ----- #
     def __iter__(self) -> t.Iterator[Bit]:
         for i in range(self.length):
             yield self[i]
 
-    def iter_chunks(self, chunk_len: int) -> t.Iterator[t.Self]:
-        if self.length % chunk_len != 0:
+    def __reversed__(self) -> t.Iterator[Bit]:
+        for i in reversed(range(self.length)):
+            yield self[i]
+
+    def iter_chunks(
+        self,
+        chunk_len: int,
+        autopad: bool = False,
+    ) -> t.Reversible[t.Self]:
+        """Return reversible iterator over chunks.
+
+        Args:
+            chunk_len: length of chunks to yield
+            autopad: automatically left-pad the highest chunk with 0s
+                into alignment with `chunk_len` (default False)
+        """
+        if self.length % chunk_len == 0:
+            bs = self
+        elif autopad:
+            bs = self.pad_left_to_alignment(chunk_len)
+        else:
             raise ValueError(
                 f"Bit string length ({self.length}) not divisible by {chunk_len}"
             )
-        for n in range(self.length // chunk_len):
-            yield self[n * chunk_len : (n + 1) * chunk_len]
 
-    def iter_bytes(self) -> t.Iterator[t.Self]:
-        """Worth a shortcut"""
-        return self.iter_chunks(8)
+        return ReversibleMap(
+            fn=lambda idx: self[idx * chunk_len : (idx + 1) * chunk_len],
+            vals=range(bs.length // chunk_len),
+        )
+
+    def iter_bytes(
+        self,
+        autopad: bool = False,
+    ) -> t.Reversible[t.Self]:
+        """Yield bytes. Equivalent to self.iter_chunks(8)"""
+        return self.iter_chunks(8, autopad=autopad)
+
+    # ───── Indexing ───────────────────────────────────────────────── #
+    def __len__(self):
+        return self.length
 
     @t.overload
     def __getitem__(self, item: int) -> Bit: ...
@@ -156,7 +221,9 @@ class BitString:
     def __getitem__(self, item: int | slice) -> Bit | t.Self:
         if isinstance(item, int):
             idx = check_idx(item, self.length)
-            return (self.value >> (self.length - idx - 1)) & 1  # pyright: ignore [reportReturnType]
+            return (
+                self.value >> (self.length - idx - 1)
+            ) & 1  # pyright: ignore [reportReturnType]
         elif isinstance(item, slice):  # test it
             return self.__class__.from_bits(
                 self[i] for i in range(*item.indices(self.length))
@@ -164,26 +231,13 @@ class BitString:
         else:
             raise NotImplementedError(type(item))
 
-    def to_hex(self, autopad: bool = False) -> str:
-        """Return hex representation including leading 0s.
-        Must be aligned to 4 bits or pass "autopad=True" to do this
-        """
-        bs = self.pad_left_to_alignment(4) if autopad else self
-
-        if bs.length % 4 != 0:
-            assert not autopad
-            raise ValueError(
-                "Must have length divisible by 4, or pass autopad=True"
-            )
-        return f"{bs.value:0{bs.length // 4}x}"
-
-    def set_bit(self, idx: int, val: Bit) -> t.Self:  # test it
+    def set_bit(self, idx: int, val: Bit) -> t.Self:
         if self[idx] == val:
             return self
         else:
             return self.flip_bit(idx)
 
-    def flip_bit(self, idx: int):  # test it
+    def flip_bit(self, idx: int):
         idx = check_idx(idx, self.length)
         return attrs.evolve(
             self,

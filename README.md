@@ -7,14 +7,16 @@ To install: clone this repo, `cd` into it, then `pip install .`. Python >=3.12+ 
 
 
 <!-- TOC -->
-* [`bitbased`](#bitbased)
-  * [API examples](#api-examples)
-    * [`bitbased.IpV4`](#bitbasedipv4)
-    * [`bitbased.CidrV4`](#bitbasedcidrv4)
-    * [`bitbased.BitString`](#bitbasedbitstring)
-    * [Covering CIDR algorithm (`bitbased.covering_set`)](#covering-cidr-algorithm-bitbasedcovering_set)
-<!-- TOC -->
 
+* [`bitbased`](#bitbased)
+    * [API examples](#api-examples)
+        * [`bitbased.IpV4`](#bitbasedipv4)
+        * [`bitbased.CidrV4`](#bitbasedcidrv4)
+        * [`bitbased.BitString`](#bitbasedbitstring)
+        * [Covering CIDR algorithm (
+          `bitbased.covering_set`)](#covering-cidr-algorithm-bitbasedcovering_set)
+
+<!-- TOC -->
 
 ## API examples
 
@@ -40,7 +42,6 @@ print(my_ip.next())  # "255.0.0.1"
 print(my_ip.prev())  # "254.255.255.255"
 ```
 
-
 ### `bitbased.CidrV4`
 
 [source](bitbased/cidrv4.py), [tests](tests/test_cidr_ranges.py)
@@ -59,17 +60,20 @@ assert cidr.net_address() == IpV4.parse('192.128.0.0')  # first address
 assert cidr.broadcast_address() == IpV4.parse("192.128.0.127")  # last address
 
 print([
-  str(ipaddr) for ipaddr in CidrV4.parse('1.2.3.4/2')
-]) # "['1.2.3.4', '1.2.3.5', '1.2.3.6', '1.2.3.7']"
+    str(ipaddr) for ipaddr in CidrV4.parse('1.2.3.4/2')
+])  # "['1.2.3.4', '1.2.3.5', '1.2.3.6', '1.2.3.7']"
 ```
 
 ### `bitbased.BitString`
-[source](bitbased/bits.py), [tests](tests/test_bit_strings.py)
+
+[source](bitbased/bitstring.py), [tests](tests/test_bit_strings.py)
 
 Immutable bitstrings of fixed length, intrepreted as big endian values.
 
 ```python
 from bitbased import BitString
+
+# or `from bitbased import Bs` for less typing
 
 # --- 6 ways to construct the 1-byte bitstring "01010101" ---
 # 0) by parsing an '0b' prefixed bin string;
@@ -83,30 +87,30 @@ b3 = BitString(value=85, length=8)
 # 4) same as 3, but with positional args
 b4 = BitString(85, 8)
 # 5) by concatenating 2 bitstrings
-b5 = BitString(5, 4).concat(BitString(5,4)) # concat 0101 with 0101
+b5 = BitString(5, 4).concat(BitString(5, 4))  # concat 0101 with 0101
 assert b0 == b1 == b2 == b3 == b4 == b5
 
 # String representations
-print(repr(b0)) # "<BitString: 01010101 (85)>"
-print(b0) # "01010101"
+print(repr(b0))  # "<BitString: 01010101 (85)>"
+print(b0)  # "01010101"
 print(b0.to_hex())  # 55
 
 # Both bitwise operators and array indexing are available:
-print(~b0) # "10101010" 
-print(b0[-1]) # "1"
-print(repr(b0[:4])) # "<BitString: 0101 (5)>"
+print(~b0)  # "10101010" 
+print(b0[-1])  # "1"
+print(repr(b0[:4]))  # "<BitString: 0101 (5)>"
 
 # Note BitStrings compare equal IFF both value *and* length match
 assert BitString.parse('0001') == BitString.parse('0001')
 assert BitString.parse('0001') != BitString.parse('01')
 ```
 
-
 ### Covering CIDR algorithm (`bitbased.covering_set`)
 
 [source](bitbased/covering_set.py), [tests](tests/test_covering_set.py)
 
-Algorithm that returns the minimal contiguous set of CIDR ranges required to cover all IP addresses between and including `ip1` and `ip2`.
+Algorithm that returns the minimal contiguous set of CIDR ranges required to cover all IP addresses
+between and including `ip1` and `ip2`.
 
 Signature: `covering_set(ip1: IpV4, ip2: IpV4) -> list[CidrV4]`
 

@@ -5,6 +5,8 @@ __all__ = ["Bit", "alignment_padding", "check_idx", "parse_bits", "ReversibleMap
 
 type Bit = t.Literal[0, 1]
 
+type ByteOrder = t.Literal["big", "little"]
+
 
 def parse_bits(s: str) -> t.Iterator[Bit]:
     for c in s:
@@ -14,7 +16,7 @@ def parse_bits(s: str) -> t.Iterator[Bit]:
             case "0":
                 yield 0
             case "_":
-                # technically these shouldn't be allowed to repeat
+                # TODO: technically these shouldn't be allowed to repeat
                 continue
             case other:
                 raise ValueError(f"Not 0/1: {other}")

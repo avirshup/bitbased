@@ -1,7 +1,7 @@
 import typing as t
-from .util import group_digits
+from .util import group_digits, ByteOrder
 
-from .bits import BitString
+from .bitstring import BitString
 
 __all__ = [
     "hex_table",
@@ -10,13 +10,11 @@ __all__ = [
     "print_aligned_bit_table",
 ]
 
-type Endian = t.Literal["big", "little"]
-
 
 def hex_table(
     bs: BitString,
     bytes_per_row: int = 8,
-    endian: Endian = "big",
+    byteorder: ByteOrder = "big",
 ) -> t.Iterator[str]:
     """Yield lines of an ASCII hex table for these bits.
 
@@ -33,7 +31,7 @@ def hex_table(
         return f'{row:>3x} | {" ".join(cells)}'
 
     byte_iter = bs.iter_bytes(autopad=True)
-    if endian == "little":
+    if byteorder == "little":
         byte_iter = reversed(byte_iter)
 
     nline = 0
@@ -53,11 +51,11 @@ def hex_table(
 def print_hex_table(
     bs,
     bytes_per_row: int = 8,
-    endian: Endian = "big",
+    byteorder: ByteOrder = "big",
     file: t.TextIO | None = None,
 ):
     """convenience"""
-    for line in hex_table(bs, bytes_per_row=bytes_per_row, endian=endian):
+    for line in hex_table(bs, bytes_per_row=bytes_per_row, byteorder=byteorder):
         print(line, file=file)
 
 

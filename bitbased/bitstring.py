@@ -2,14 +2,7 @@ import typing as t
 
 import attrs
 
-from .util import (
-    Bit,
-    alignment_padding,
-    check_idx,
-    parse_bits,
-    ReversibleMap,
-    group_digits,
-)
+from . import errors, util
 
 __all__ = ["BitString"]
 
@@ -27,48 +20,82 @@ class BitString:
     )
 
     def __attrs_post_init__(self):
+        if self.length < 0:
+            raise errors.LengthError(f"Invalid length: {self.length}")
+
         if self.value < 0:
-            raise NotImplementedError("Negative values not handled")
+            raise errors.UnhandledValueError("Negative values not handled")
 
         if self.value.bit_length() > self.length:
-            raise ValueError(
+            raise errors.LengthError(
                 f"Invalid: value {self.value} is too large for"
                 f" bit length {self.length}"
             )
 
     # ----- Constructors ----- #
     @classmethod
-    def from_bits(cls, bits: t.Iterable[Bit]) -> t.Self:
+    def from_bits(cls, bits: t.Iterable[util.Bit]) -> t.Self:
         val = 0
-        length = 0  # since iterator might be empty
+        length = 0
         for bit in bits:
+            assert bit in (0, 1)
             val = (val << 1) + bit
             length += 1
         return cls(val, length)
 
     @classmethod
+    def from_bytes(
+        cls,
+        values: t.Iterable[int] | t.ByteString,
+        byteorder: util.ByteOrder = "big",
+    ) -> t.Self:
+        if values is bytes:  # I do this a lot
+            raise TypeError(
+                "Oops, you passed the _class_ 'bytes', not an instance!"
+                " There's likely a typo in the caller."
+            )
+
+        val = 0
+        length = 0
+        for byteval in values:
+            assert 0 <= byteval < 256
+            match byteorder:
+                case "big":
+                    val = (val << 8) + byteval
+                case "little":
+                    val += byteval << length
+                case _:
+                    raise ValueError(f"Invalid byteorder '{byteorder}'")
+
+            length += 8
+        return cls(val, length)
+
+    @classmethod
     def ones(cls, length: int) -> t.Self:
-        assert length >= 0
         return cls((1 << length) - 1)
 
     @classmethod
     def zeroes(cls, length: int) -> t.Self:
-        assert length >= 0
         return cls(0, length)
 
     @classmethod
     def parse(cls, s: str) -> t.Self:
         match s[:2]:
             case "0b":
-                return cls.from_bits(parse_bits(s[2:]))
+                return cls.from_bits(util.parse_bits(s[2:]))
             case "0x":
                 return cls(
-                    value=int(s[2:], base=16),
+                    value=int(s, base=16),
                     length=4 * (len(s.replace("_", "")) - 2),
+                )
+            case "0o":
+                return cls(
+                    value=int(s, base=8),
+                    length=3 * (len(s.replace("_", "")) - 2),
                 )
             case _:
                 # if here, assume string made of "1"s and "0"s
-                return cls.from_bits(parse_bits(s))
+                return cls.from_bits(util.parse_bits(s))
 
     # ---- String representations ---- #
     def __str__(self) -> str:
@@ -106,8 +133,20 @@ class BitString:
 
         if bs.length % 4 != 0:
             assert not autopad
-            raise ValueError("Must have length divisible by 4, or pass autopad=True")
+            raise ValueError(
+                "Must have length divisible by 4, or pass autopad=True"
+            )
         return f"{bs.value:0{bs.length // 4}x}"
+
+    def to_bytes(
+        self,
+        autopad: bool = False,
+        byteorder: util.ByteOrder = "big",
+    ) -> bytes:
+        byte_iter = self.iter_bytes(autopad=autopad)
+        if byteorder == "little":
+            byte_iter = reversed(byte_iter)
+        return b"".join(b.value.to_bytes() for b in byte_iter)
 
     # ---- Math --- #
     # Warning:
@@ -167,11 +206,11 @@ class BitString:
             )
 
     # ----- Iterators ----- #
-    def __iter__(self) -> t.Iterator[Bit]:
+    def __iter__(self) -> t.Iterator[util.Bit]:
         for i in range(self.length):
             yield self[i]
 
-    def __reversed__(self) -> t.Iterator[Bit]:
+    def __reversed__(self) -> t.Iterator[util.Bit]:
         for i in reversed(range(self.length)):
             yield self[i]
 
@@ -196,7 +235,7 @@ class BitString:
                 f"Bit string length ({self.length}) not divisible by {chunk_len}"
             )
 
-        return ReversibleMap(
+        return util.ReversibleMap(
             fn=lambda idx: self[idx * chunk_len : (idx + 1) * chunk_len],
             vals=range(bs.length // chunk_len),
         )
@@ -213,32 +252,31 @@ class BitString:
         return self.length
 
     @t.overload
-    def __getitem__(self, item: int) -> Bit: ...
+    def __getitem__(self, item: int) -> util.Bit: ...
 
     @t.overload
     def __getitem__(self, item: slice) -> t.Self: ...
 
-    def __getitem__(self, item: int | slice) -> Bit | t.Self:
+    def __getitem__(self, item: int | slice) -> util.Bit | t.Self:
         if isinstance(item, int):
-            idx = check_idx(item, self.length)
-            return (
-                self.value >> (self.length - idx - 1)
-            ) & 1  # pyright: ignore [reportReturnType]
-        elif isinstance(item, slice):  # test it
+            idx = util.check_idx(item, self.length)
+            return (self.value >> (self.length - idx - 1)) & 1  # pyright: ignore [reportReturnType]
+        elif isinstance(item, slice):
+            # TODO: use a bitmask, don't just iterate over bits
             return self.__class__.from_bits(
                 self[i] for i in range(*item.indices(self.length))
             )
         else:
             raise NotImplementedError(type(item))
 
-    def set_bit(self, idx: int, val: Bit) -> t.Self:
+    def set_bit(self, idx: int, val: util.Bit) -> t.Self:
         if self[idx] == val:
             return self
         else:
             return self.flip_bit(idx)
 
     def flip_bit(self, idx: int):
-        idx = check_idx(idx, self.length)
+        idx = util.check_idx(idx, self.length)
         return attrs.evolve(
             self,
             value=self.value ^ (1 << (self.length - idx - 1)),
@@ -268,7 +306,7 @@ class BitString:
         )
 
     def pad_left_to_alignment(self, alignment: int) -> t.Self:
-        return self.pad_left(alignment_padding(self.length, alignment))
+        return self.pad_left(util.alignment_padding(self.length, alignment))
 
     def pad_right_to_aligment(self, alignment: int) -> t.Self:
-        return self.pad_right(alignment_padding(self.length, alignment))
+        return self.pad_right(util.alignment_padding(self.length, alignment))

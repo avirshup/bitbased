@@ -3,3 +3,4 @@ attrs == 25.3.0
 
 # dev
 pytest == 8.3.5
+hypothesis == 6.131.24

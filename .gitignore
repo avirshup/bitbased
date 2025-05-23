@@ -3,3 +3,7 @@
 __pycache__
 .vscode
 *.egg-info
+runpyright*
+
+# TODO: best practices for hypothesis history in repo
+tests/.hypothesis

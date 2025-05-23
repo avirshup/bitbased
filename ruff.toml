@@ -1,0 +1,35 @@
+
+# see https://docs.astral.sh/ruff/settings/
+required-version = '>=0.8'
+line-length = 82
+exclude = ['_build',  'build', 'dist', 'artifacts']
+fix = true
+
+[lint]
+extend-unsafe-fixes=[
+    "F401",  # don't auto-remove "unused imports" - this deletes in-progress code
+    "RUF100",   # don't auto-remove "uneccesary noqa";
+                    # the #noqa might be for another tool (pyright, pycharm, etc.)
+]
+
+ignore = [
+    # "SIM108", # Might be too eager to replace if-else with ternary expressions
+]
+
+# see https://docs.astral.sh/ruff/rules for definitions
+select = [
+    "E", # pycodestyle
+    "F", # Pyflakes
+    "UP", # pyupgrade
+    "B", # flake8-bugbear
+    "SIM", # flake8-simplify
+    "I", # isort
+    "YTT", # flake8-2020
+    "RUF", # ruff's own rules
+]
+
+[lint.per-file-ignores]
+"__init__.py" = ["I001", "F403"]  # allow 'import *' in __init__.py
+
+[lint.pydocstyle]
+convention = "google"
